@@ -1,2 +1,3 @@
-# audio_recorder
-Audio recorder functionalities 
+# audio_player
+
+A new Flutter project.
