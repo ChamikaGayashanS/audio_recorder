@@ -16,16 +16,42 @@ class RecorderPage extends ConsumerStatefulWidget {
   ConsumerState<RecorderPage> createState() => _RecorderPageState();
 }
 
+double getWavDuration(Uint8List byteData) {
+  // Check if it's a WAV file (assuming it's PCM format)
+  // if (String.fromCharCodes(byteData.sublist(0, 4)) == 'RIFF' &&
+  //     String.fromCharCodes(byteData.sublist(8, 12)) == 'WAVE' &&
+  //     String.fromCharCodes(byteData.sublist(20, 24)) == 'fmt ') {
+  // Extract sample rate and byte rate from WAV header
+  int sampleRate = byteData.buffer.asByteData().getUint32(24, Endian.little);
+  int byteRate = byteData.buffer.asByteData().getUint32(28, Endian.little);
+
+  // Calculate duration based on the number of samples
+  int dataSize = byteData.buffer.asByteData().getUint32(40, Endian.little);
+  int numChannels = byteData.buffer.asByteData().getUint16(22, Endian.little);
+  int bitsPerSample = byteData.buffer.asByteData().getUint16(34, Endian.little);
+
+  int totalSamples = dataSize ~/ (numChannels * (bitsPerSample ~/ 8));
+  double durationInSeconds = totalSamples / sampleRate;
+
+  return durationInSeconds * 1000;
+  // } else {
+  //   // Not a valid WAV file
+  //   print('Not a valid WAV file.');
+  //   return 0.0;
+  // }
+}
+
 class _RecorderPageState extends ConsumerState<RecorderPage> {
   bool recording = false;
   bool playing = false;
   Record recorder = Record();
   AudioPlayer audioPlayer = AudioPlayer();
   String recorderPath = '';
+  Duration duration = const Duration();
 
   Future getDirectory() async {
     Directory appDirectory = await getApplicationDocumentsDirectory();
-    return "${appDirectory.path}/recording.aac";
+    return "${appDirectory.path}/recording.wav";
   }
 
   startRecorder() async {
@@ -37,7 +63,7 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
         });
         await recorder.start(
           path: path,
-          encoder: AudioEncoder.aacLc,
+          encoder: AudioEncoder.wav,
           bitRate: 128000,
         );
       }
@@ -55,9 +81,10 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   initializeAudioPlayer() async {
     await audioPlayer.setLoopMode(LoopMode.one);
     await audioPlayer.setAudioSource(AudioSource.file(recorderPath));
-    Duration duration = await audioPlayer.load() ?? const Duration();
+    Duration _duration = await audioPlayer.load() ?? const Duration();
+    duration = _duration;
     print(
-        'Duration in Seconds - ${duration.inSeconds} -------------------------------------------------------------------------------------------------');
+        'Duration in Seconds - ${duration.inMilliseconds} -------------------------------------------------------------------------------------------------');
   }
 
   playPauseAudio() async {
@@ -94,9 +121,26 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
                   onTap: () async {
                     File file = File(recorderPath);
                     await file.readAsBytes().then((value) {
-                      Uint8List byteArray = value;
-                      print('Byte Array Length - ${byteArray.length}');
-                      print(byteArray);
+                      Uint8List originalByteArray = value;
+                      print(
+                          'Original Byte Array Length - ${originalByteArray.length}');
+                      print(originalByteArray);
+
+                      print(
+                          'Byte Array duration ${getWavDuration(originalByteArray)}');
+                      // var startIndex = (originalByteArray.length) -
+                      //     (originalByteArray.length / duration.inSeconds)
+                      //         .round();
+                      // var endIndex = (originalByteArray.length);
+                      // Uint8List trimmedArray =
+                      //     originalByteArray.sublist(startIndex, endIndex);
+                      // print(
+                      //     'Trimmed Byte Array Length - ${originalByteArray.length}');
+
+                      // File newFile = File.fromRawPath(trimmedArray);
+                      // recorderPath = newFile.path;
+
+                      // initializeAudioPlayer();
                     });
                   },
                 ),
