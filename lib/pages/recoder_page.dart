@@ -17,15 +17,9 @@ class RecorderPage extends ConsumerStatefulWidget {
 }
 
 double getWavDuration(Uint8List byteData) {
-  // Check if it's a WAV file (assuming it's PCM format)
-  // if (String.fromCharCodes(byteData.sublist(0, 4)) == 'RIFF' &&
-  //     String.fromCharCodes(byteData.sublist(8, 12)) == 'WAVE' &&
-  //     String.fromCharCodes(byteData.sublist(20, 24)) == 'fmt ') {
-  // Extract sample rate and byte rate from WAV header
   int sampleRate = byteData.buffer.asByteData().getUint32(24, Endian.little);
   int byteRate = byteData.buffer.asByteData().getUint32(28, Endian.little);
 
-  // Calculate duration based on the number of samples
   int dataSize = byteData.buffer.asByteData().getUint32(40, Endian.little);
   int numChannels = byteData.buffer.asByteData().getUint16(22, Endian.little);
   int bitsPerSample = byteData.buffer.asByteData().getUint16(34, Endian.little);
@@ -33,12 +27,7 @@ double getWavDuration(Uint8List byteData) {
   int totalSamples = dataSize ~/ (numChannels * (bitsPerSample ~/ 8));
   double durationInSeconds = totalSamples / sampleRate;
 
-  return durationInSeconds * 1000;
-  // } else {
-  //   // Not a valid WAV file
-  //   print('Not a valid WAV file.');
-  //   return 0.0;
-  // }
+  return durationInSeconds * 1000; // duration in milliseconds
 }
 
 class _RecorderPageState extends ConsumerState<RecorderPage> {
