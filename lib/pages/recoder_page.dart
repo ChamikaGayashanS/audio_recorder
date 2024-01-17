@@ -1,30 +1,47 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:audio_player/pages/recorder_controller.dart';
 import 'package:audio_player/widgets/rounded_buton.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 
-class RecorderPage extends StatefulWidget {
+class RecorderPage extends ConsumerStatefulWidget {
   const RecorderPage({super.key});
 
   @override
-  State<RecorderPage> createState() => _RecorderPageState();
+  ConsumerState<RecorderPage> createState() => _RecorderPageState();
 }
 
-class _RecorderPageState extends State<RecorderPage> {
+double getWavDuration(Uint8List byteData) {
+  int sampleRate = byteData.buffer.asByteData().getUint32(24, Endian.little);
+  int byteRate = byteData.buffer.asByteData().getUint32(28, Endian.little);
+
+  int dataSize = byteData.buffer.asByteData().getUint32(40, Endian.little);
+  int numChannels = byteData.buffer.asByteData().getUint16(22, Endian.little);
+  int bitsPerSample = byteData.buffer.asByteData().getUint16(34, Endian.little);
+
+  int totalSamples = dataSize ~/ (numChannels * (bitsPerSample ~/ 8));
+  double durationInSeconds = totalSamples / sampleRate;
+
+  return durationInSeconds * 1000; // duration in milliseconds
+}
+
+class _RecorderPageState extends ConsumerState<RecorderPage> {
   bool recording = false;
   bool playing = false;
   Record recorder = Record();
   AudioPlayer audioPlayer = AudioPlayer();
   String recorderPath = '';
-  String trimmedAudioPath = '';
+  Duration duration = const Duration();
 
   Future getDirectory() async {
     Directory appDirectory = await getApplicationDocumentsDirectory();
-    return "${appDirectory.path}/recording.aac";
+    return "${appDirectory.path}/recording.wav";
   }
 
   startRecorder() async {
@@ -36,7 +53,7 @@ class _RecorderPageState extends State<RecorderPage> {
         });
         await recorder.start(
           path: path,
-          encoder: AudioEncoder.aacLc,
+          encoder: AudioEncoder.wav,
           bitRate: 128000,
         );
       }
@@ -54,6 +71,10 @@ class _RecorderPageState extends State<RecorderPage> {
   initializeAudioPlayer() async {
     await audioPlayer.setLoopMode(LoopMode.one);
     await audioPlayer.setAudioSource(AudioSource.file(recorderPath));
+    Duration _duration = await audioPlayer.load() ?? const Duration();
+    duration = _duration;
+    print(
+        'Duration in Seconds - ${duration.inMilliseconds} -------------------------------------------------------------------------------------------------');
   }
 
   playPauseAudio() async {
@@ -137,6 +158,7 @@ class _RecorderPageState extends State<RecorderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = ref.read(recorderPageControllerProvider);
     return Scaffold(
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -148,14 +170,38 @@ class _RecorderPageState extends State<RecorderPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // RoundedButton(
-                //   radius: 50,
-                //   icon: const Icon(Icons.mic, color: Colors.white),
-                //   backgroundColor: Colors.red,
-                //   borderColors: Colors.black45,
-                //   onTap: () {},
-                // ),
-                const Gap(70),
+                RoundedButton(
+                  radius: 50,
+                  icon: const Icon(Icons.document_scanner, color: Colors.white),
+                  backgroundColor: Colors.red,
+                  borderColors: Colors.black45,
+                  onTap: () async {
+                    File file = File(recorderPath);
+                    await file.readAsBytes().then((value) {
+                      Uint8List originalByteArray = value;
+                      print(
+                          'Original Byte Array Length - ${originalByteArray.length}');
+                      print(originalByteArray);
+
+                      print(
+                          'Byte Array duration ${getWavDuration(originalByteArray)}');
+                      // var startIndex = (originalByteArray.length) -
+                      //     (originalByteArray.length / duration.inSeconds)
+                      //         .round();
+                      // var endIndex = (originalByteArray.length);
+                      // Uint8List trimmedArray =
+                      //     originalByteArray.sublist(startIndex, endIndex);
+                      // print(
+                      //     'Trimmed Byte Array Length - ${originalByteArray.length}');
+
+                      // File newFile = File.fromRawPath(trimmedArray);
+                      // recorderPath = newFile.path;
+
+                      // initializeAudioPlayer();
+                    });
+                  },
+                ),
+                const Gap(40),
                 RoundedButton(
                   radius: 60,
                   icon: Icon(recording ? Icons.stop : Icons.mic,

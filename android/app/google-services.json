@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "204623226066",
+    "project_id": "audio-recorder-bbe62",
+    "storage_bucket": "audio-recorder-bbe62.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:204623226066:android:d81d670289db8e96fbb90b",
+        "android_client_info": {
+          "package_name": "com.example.audio_player"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnHiD2egc1CaAT0JbQzY9YGl6NJ1NWc4g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
