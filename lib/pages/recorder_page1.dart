@@ -21,6 +21,8 @@ class _RecorderPage1State extends State<RecorderPage1> {
   AudioPlayer audioPlayer = AudioPlayer();
   String recorderPath = '';
   String trimmedAudioPath = '';
+  String firstSegmentPath = '';
+  String secondSegmentPath = '';
 
   Future getDirectory() async {
     Directory appDirectory = await getApplicationDocumentsDirectory();
@@ -72,6 +74,7 @@ class _RecorderPage1State extends State<RecorderPage1> {
     final trimmedPath = await trimAudio(start, end);
     trimmedAudioPath = trimmedPath; // Store the path for future playback
     await initializeAudioPlayerWithTrimmedAudio();
+    print(trimmedAudioPath);
     playPauseAudio();
   }
 
@@ -103,6 +106,7 @@ class _RecorderPage1State extends State<RecorderPage1> {
     // 3. Initialize and play the concatenated audio
     await initializeAudioPlayerWithPath(concatenatedPath);
     playPauseAudio();
+    print("concat1path = $file1Path + concat2path= $file2Path");
   }
 
   Future<void> initializeAudioPlayerWithPath(String audioPath) async {
@@ -112,27 +116,29 @@ class _RecorderPage1State extends State<RecorderPage1> {
 
   Future<void> splitAndPlayAudio(int splitPoint) async {
     // 1. Get paths for split audio segments
-    String firstSegmentPath =
+    firstSegmentPath =
         await getDirectory().then((path) => path + '.segment1.aac');
-    String secondSegmentPath =
+    secondSegmentPath =
         await getDirectory().then((path) => path + '.segment2.aac');
 
     // 2. Use FFmpeg to split the audio
     await FFmpegKit.executeAsync(
-      '-i $recorderPath -ss 0 -to $splitPoint $firstSegmentPath -ss $splitPoint -to $recorderPath.duration $secondSegmentPath',
-    );
-
-    // 3. Choose which segment to play
-    bool playFirstSegment = false; // Change this depending on your logic
-
-    // 4. Initialize and play the chosen segment
-    if (playFirstSegment) {
-      await initializeAudioPlayerWithPath(firstSegmentPath);
-    } else {
-      await initializeAudioPlayerWithPath(secondSegmentPath);
-    }
-
+        '-i $recorderPath -ss 0 -to $splitPoint $firstSegmentPath -c copy'
+        //'-i $recorderPath -ss 0 -to $splitPoint $firstSegmentPath -ss $splitPoint -to $recorderPath.duration $secondSegmentPath',
+        );
+    await initializeAudioPlayerWithPath(firstSegmentPath);
     playPauseAudio();
+    print(firstSegmentPath);
+
+    // // 3. Choose which segment to play
+    // bool playFirstSegment = false; // Change this depending on your logic
+
+    // // 4. Initialize and play the chosen segment
+    // if (playFirstSegment) {
+    //   await initializeAudioPlayerWithPath(firstSegmentPath);
+    // } else {
+    //   await initializeAudioPlayerWithPath(secondSegmentPath);
+    // }
   }
 
   @override
