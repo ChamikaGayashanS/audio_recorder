@@ -35,13 +35,15 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   List<String> selectedPaths = [];
 
   Future getDirectory() async {
-    Directory appDirectory = await getTemporaryDirectory();
+    // Directory appDirectory = await getTemporaryDirectory();
+    Directory appDirectory = await getApplicationDocumentsDirectory();
     return appDirectory.path;
   }
 
   startRecorder() async {
     await getDirectory().then((path) async {
       String key = UniqueKey().toString();
+      print(path);
       recorderPath = '$path/recording$key.wav';
       if (await recorder.hasPermission()) {
         setState(() {
@@ -66,22 +68,18 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   }
 
   initializeAudioPlayer({required String path}) async {
-    selectedAudio = path;
-    final storageRef = FirebaseStorage.instance.ref();
-    final audioRef = storageRef.child("audio.wav");
-    await audioRef.putFile(File(path));
+    try {
+      selectedAudio = path;
+      await audioPlayer.setLoopMode(LoopMode.all);
+      await audioPlayer.setFilePath(path);
+      // await audioPlayer.setAudioSource(AudioSource.file(path));
+      Duration _duration = await audioPlayer.load() ?? const Duration();
+      duration = _duration;
 
-    final url = await audioRef.getDownloadURL();
-
-    print(url);
-
-    await audioPlayer.setLoopMode(LoopMode.all);
-    await audioPlayer.setAudioSource(AudioSource.uri(Uri.parse(url)));
-    // await audioPlayer.setAudioSource(AudioSource.file(path));
-    Duration _duration = await audioPlayer.load() ?? const Duration();
-    duration = _duration;
-
-    setState(() {});
+      setState(() {});
+    } catch (e) {
+      print(e);
+    }
   }
 
   playPauseAudio() async {
