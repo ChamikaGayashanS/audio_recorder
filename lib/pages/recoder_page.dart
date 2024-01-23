@@ -7,6 +7,7 @@ import 'package:audio_player/pages/recorder_controller.dart';
 import 'package:audio_player/widgets/rounded_buton.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_session.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
@@ -66,8 +67,17 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
 
   initializeAudioPlayer({required String path}) async {
     selectedAudio = path;
+    final storageRef = FirebaseStorage.instance.ref();
+    final audioRef = storageRef.child("audio.wav");
+    await audioRef.putFile(File(path));
+
+    final url = await audioRef.getDownloadURL();
+
+    print(url);
+
     await audioPlayer.setLoopMode(LoopMode.all);
-    await audioPlayer.setAudioSource(AudioSource.file(path));
+    await audioPlayer.setAudioSource(AudioSource.uri(Uri.parse(url)));
+    // await audioPlayer.setAudioSource(AudioSource.file(path));
     Duration _duration = await audioPlayer.load() ?? const Duration();
     duration = _duration;
 

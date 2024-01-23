@@ -17,8 +17,8 @@ dependencies:
   path_provider: ^2.0.9
   just_audio: ^0.9.8
   record: ^4.4.4
-  ffmpeg_kit_flutter: ^6.0.3
   sizer: ^2.0.15
+  ffmpeg_kit_flutter: ^6.0.3
 
 dev_dependencies:
   flutter_test:
