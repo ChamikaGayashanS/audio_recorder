@@ -35,8 +35,8 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   List<String> selectedPaths = [];
 
   Future getDirectory() async {
-    // Directory appDirectory = await getTemporaryDirectory();
-    Directory appDirectory = await getApplicationDocumentsDirectory();
+    Directory appDirectory = await getTemporaryDirectory();
+    // Directory appDirectory = await getApplicationDocumentsDirectory();
     return appDirectory.path;
   }
 
@@ -52,7 +52,7 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
         await recorder.start(
           path: recorderPath,
           encoder: AudioEncoder.wav,
-          bitRate: 128000,
+          bitRate: 32000,
         );
       }
     });
@@ -71,7 +71,8 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
     try {
       selectedAudio = path;
       await audioPlayer.setLoopMode(LoopMode.all);
-      await audioPlayer.setFilePath(path);
+      // await audioPlayer.setFilePath(File(path).path);
+      audioPlayer = AudioPlayer()..setAsset('assets/audio.wav');
       // await audioPlayer.setAudioSource(AudioSource.file(path));
       Duration _duration = await audioPlayer.load() ?? const Duration();
       duration = _duration;
