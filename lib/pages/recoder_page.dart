@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:audio_player/helpers/helperFunctions.dart';
 import 'package:audio_player/pages/recorder_controller.dart';
 import 'package:audio_player/widgets/rounded_buton.dart';
+import 'package:audio_waveforms/audio_waveforms.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_session.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -29,39 +31,60 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   Record recorder = Record();
   AudioPlayer audioPlayer = AudioPlayer();
   String recorderPath = '';
-  Duration duration = const Duration();
+  int duration = 0;
   String selectedAudio = '';
   List<String> audioPaths = [];
   List<String> selectedPaths = [];
 
+  late RecorderController recorderController;
+  late PlayerController playerController;
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    initRecorder();
+  }
+
+  initRecorder() {
+    recorderController = RecorderController()
+      ..androidEncoder = AndroidEncoder.aac
+      ..androidOutputFormat = AndroidOutputFormat.mpeg4
+      ..iosEncoder = IosEncoder.kAudioFormatMPEG4AAC
+      ..sampleRate = 16000;
+  }
+
   Future getDirectory() async {
-    Directory appDirectory = await getTemporaryDirectory();
+    Directory appDirectory = await getApplicationDocumentsDirectory();
     // Directory appDirectory = await getApplicationDocumentsDirectory();
     return appDirectory.path;
   }
 
   startRecorder() async {
     await getDirectory().then((path) async {
-      String key = UniqueKey().toString();
+      String key = DateTime.now().toString();
       print(path);
-      recorderPath = '$path/recording$key.wav';
+      recorderPath = '$path/recording$key';
       if (await recorder.hasPermission()) {
         setState(() {
           recording = true;
         });
-        await recorder.start(
-          path: recorderPath,
-          encoder: AudioEncoder.wav,
-          bitRate: 32000,
-        );
+        await recorderController.record(path: recorderPath);
+
+        // await recorder.start(
+        //   path: recorderPath,
+        //   encoder: AudioEncoder.wav,
+        //   bitRate: 32000,
+        // );
       }
     });
   }
 
   stopRecorder() async {
-    await recorder.stop();
-    audioPaths.add(recorderPath);
-    await initializeAudioPlayer(path: recorderPath);
+    final path = await recorderController.stop();
+    // await recorder.stop();
+    audioPaths.add(path!);
+    await initializeAudioPlayer(path: path);
     setState(() {
       recording = false;
     });
@@ -70,12 +93,18 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   initializeAudioPlayer({required String path}) async {
     try {
       selectedAudio = path;
-      await audioPlayer.setLoopMode(LoopMode.all);
-      // await audioPlayer.setFilePath(File(path).path);
-      audioPlayer = AudioPlayer()..setAsset('assets/audio.wav');
-      // await audioPlayer.setAudioSource(AudioSource.file(path));
-      Duration _duration = await audioPlayer.load() ?? const Duration();
+      playerController = PlayerController();
+      playerController.preparePlayer(path: path);
+      final _duration = await playerController.getDuration();
       duration = _duration;
+
+      // selectedAudio = await getIosDevicePath(path);
+      // await audioPlayer.setLoopMode(LoopMode.all);
+      // await audioPlayer.setFilePath(File(path).path);
+      // // audioPlayer = AudioPlayer()..setAsset('assets/audio.wav');
+      // await audioPlayer.setAudioSource(AudioSource.file(path));
+      // Duration _duration = await audioPlayer.load() ?? const Duration();
+      // duration = _duration;
 
       setState(() {});
     } catch (e) {
@@ -83,15 +112,35 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
     }
   }
 
+  getIosDevicePath(String path) async {
+    // if (Platform.isIOS) {
+    var file = File(path);
+
+    Uint8List bytes = file.readAsBytesSync();
+
+    var buffer = bytes.buffer;
+
+    var unit8 = buffer.asUint8List(32, bytes.lengthInBytes - 32);
+    Directory dir = await getApplicationDocumentsDirectory();
+
+    var tmpFile = "${dir.path}/tmp.mp3";
+    File(tmpFile).writeAsBytesSync(unit8);
+    return tmpFile;
+    // }
+    // return path;
+  }
+
   playPauseAudio() async {
     if (playing) {
       playing = false;
       setState(() {});
-      await audioPlayer.pause();
+      playerController.pausePlayer();
+      // await audioPlayer.pause();
     } else {
       playing = true;
       setState(() {});
-      await audioPlayer.play();
+      playerController.startPlayer(finishMode: FinishMode.loop);
+      // await audioPlayer.play();
     }
   }
 
@@ -100,9 +149,10 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
       required double startTime,
       required double endTime}) async {
     try {
-      String key = UniqueKey().toString();
+      String key = DateTime.now().toString();
+
       String outputPath =
-          await getDirectory().then((path) => '$path/trim_audio$key.wav');
+          await getDirectory().then((path) => '$path/trim_audio$key');
 
       double trimDuration = endTime - startTime;
       String command =
@@ -121,9 +171,10 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
 
   Future<String> concatenateAudioFile() async {
     try {
-      String key = UniqueKey().toString();
-      String outputPath = await getDirectory()
-          .then((path) => '$path/concatenate_audio$key.wav');
+      String key = DateTime.now().toString();
+
+      String outputPath =
+          await getDirectory().then((path) => '$path/concatenate_audio$key');
 
       String command =
           '-i ${selectedPaths[0]} -i ${selectedPaths[1]} -filter_complex "[0:0][1:0]concat=n=2:v=0:a=1[out]" -map "[out]" $outputPath';
@@ -170,7 +221,7 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
                   },
                   onTap: () async {
                     playing = false;
-                    await audioPlayer.stop();
+                    // await audioPlayer.stop();
                     setState(() {});
                     initializeAudioPlayer(path: e);
                   },
@@ -202,6 +253,10 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
           )),
           Column(
             children: [
+              AudioWaveforms(
+                size: const Size(double.infinity, 80.0),
+                recorderController: recorderController,
+              ),
               selectedAudio.isNotEmpty
                   ? Text(
                       selectedAudio.split('/').last,
@@ -255,7 +310,7 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
                                 child: ListBody(
                                   children: <Widget>[
                                     Text(
-                                      'Duration in Second ${duration.inSeconds.toString()}',
+                                      'Duration in Second ${duration.toString()}',
                                       style: const TextStyle(
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500),

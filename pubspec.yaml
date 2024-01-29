@@ -13,13 +13,15 @@ dependencies:
   firebase_core: ^2.24.2
   cloud_firestore: ^4.14.0
   firebase_storage: ^11.6.0
-  gap: ^3.0.1
+  gap: ^3.0.1 
   path_provider: ^2.0.9
-  just_audio: ^0.9.8
+  just_audio: ^0.9.8  
   audioplayers: ^5.2.1
   record: ^4.4.4
   sizer: ^2.0.15
   ffmpeg_kit_flutter: ^6.0.3
+  device_info_plus: ^9.1.1
+  audio_waveforms: ^1.0.4
 
 dev_dependencies:
   flutter_test:
