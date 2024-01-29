@@ -19,6 +19,8 @@ dependencies:
   record: ^4.4.4
   ffmpeg_kit_flutter: ^6.0.3
   sizer: ^2.0.15
+  audio_waveforms: ^1.0.4
+  file_picker: ^6.1.1
 
 dev_dependencies:
   flutter_test:

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:audio_player/helpers/helperFunctions.dart';
 import 'package:audio_player/pages/recorder_controller.dart';
 import 'package:audio_player/widgets/rounded_buton.dart';
+import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter/ffmpeg_session.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,9 @@ class RecorderPage extends ConsumerStatefulWidget {
 }
 
 class _RecorderPageState extends ConsumerState<RecorderPage> {
+  late final RecorderController recorderController;
+  late final PlayerController playerController;
+
   bool recording = false;
   bool playing = false;
   Record recorder = Record();
@@ -33,24 +37,78 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
   List<String> audioPaths = [];
   List<String> selectedPaths = [];
 
+  String? path;
+  String? musicFile;
+  bool isRecording = false;
+  bool isRecordingCompleted = false;
+  bool isLoading = true;
+  late Directory appDirectory;
+
+  @override
+  void initState() {
+    super.initState();
+    getDirectory();
+    _initialiseControllers();
+  }
+
   Future getDirectory() async {
     Directory appDirectory = await getTemporaryDirectory();
+    isLoading = false;
+    setState(() {});
     return appDirectory.path;
   }
 
+  void _initialiseControllers() {
+    recorderController = RecorderController()
+      ..androidEncoder = AndroidEncoder.aac
+      ..androidOutputFormat = AndroidOutputFormat.mpeg4
+      ..iosEncoder = IosEncoder.kAudioFormatMPEG4AAC
+      ..sampleRate = 128000;
+
+    playerController = PlayerController();
+  }
+
   startRecorder() async {
+    // await getDirectory().then((path) async {
+    //   String key = UniqueKey().toString();
+    //   recorderPath = '$path/recording$key.wav';
+    //   if (await recorder.hasPermission()) {
+    //     setState(() {
+    //       recording = true;
+    //     });
+    //     await recorder.start(
+    //       path: recorderPath,
+    //       encoder: AudioEncoder.wav,
+    //       bitRate: 128000,
+    //     );
+    //   }
+    // });
     await getDirectory().then((path) async {
       String key = UniqueKey().toString();
       recorderPath = '$path/recording$key.wav';
-      if (await recorder.hasPermission()) {
+      try {
+        if (recording) {
+          recorderController.reset();
+
+          recorderPath = (await recorderController.stop(false))!;
+          audioPaths.add(recorderPath);
+          await initializeAudioPlayer(path: recorderPath);
+
+          if (recorderPath != null) {
+            isRecordingCompleted = true;
+            debugPrint(recorderPath);
+            debugPrint(
+                "Recorded file size: ${File(recorderPath).lengthSync()}");
+          }
+        } else {
+          await recorderController.record(path: recorderPath);
+        }
+      } catch (e) {
+        debugPrint(e.toString());
+      } finally {
         setState(() {
-          recording = true;
+          recording = !recording;
         });
-        await recorder.start(
-          path: recorderPath,
-          encoder: AudioEncoder.wav,
-          bitRate: 128000,
-        );
       }
     });
   }
@@ -66,23 +124,26 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
 
   initializeAudioPlayer({required String path}) async {
     selectedAudio = path;
-    await audioPlayer.setLoopMode(LoopMode.all);
-    await audioPlayer.setAudioSource(AudioSource.file(path));
-    Duration _duration = await audioPlayer.load() ?? const Duration();
-    duration = _duration;
+    // await audioPlayer.setLoopMode(LoopMode.all);
+    // await audioPlayer.setAudioSource(AudioSource.file(path));
+    // Duration _duration = await audioPlayer.load() ?? const Duration();
+    // duration = _duration;
 
-    setState(() {});
+    // setState(() {});
+
+    playerController.preparePlayer(path: path);
   }
 
   playPauseAudio() async {
     if (playing) {
       playing = false;
       setState(() {});
-      await audioPlayer.pause();
+      await playerController.pausePlayer(); // Pause audio player
     } else {
       playing = true;
       setState(() {});
-      await audioPlayer.play();
+      await playerController.startPlayer(
+          finishMode: FinishMode.loop); // Start audio player
     }
   }
 
@@ -139,15 +200,19 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
 
   @override
   void dispose() {
-    // TODO: implement dispose
+    recorderController.dispose();
     super.dispose();
     clearTempDirectories();
   }
 
+  void _refreshWave() {
+    if (isRecording) recorderController.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = ref.read(recorderPageControllerProvider);
     return Scaffold(
+      backgroundColor: Colors.cyan,
       body: Column(
         children: [
           Expanded(
@@ -200,6 +265,104 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
                           fontSize: 14, fontWeight: FontWeight.w400),
                     )
                   : const SizedBox(),
+              Row(
+                children: [
+                  AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: recording
+                          ? AudioWaveforms(
+                              enableGesture: true,
+                              size: Size(
+                                  MediaQuery.of(context).size.width / 1.5, 80),
+                              recorderController: recorderController,
+                              shouldCalculateScrolledPosition: true,
+                              waveStyle: const WaveStyle(
+                                waveColor: Colors.green,
+                                showDurationLabel: true,
+                                spacing: 8.0,
+                                showBottom: true,
+                                extendWaveform: true,
+                                showMiddleLine: false,
+                                // gradient: ui.Gradient.linear(
+                                //   const Offset(70, 50),
+                                //   Offset(
+                                //       MediaQuery.of(context).size.width / 2, 0),
+                                //   [Colors.red, Colors.green],
+                                // ),
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12.0),
+                                color: const Color(0xFF1E1B26),
+                              ),
+                              padding: const EdgeInsets.only(left: 18),
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 15),
+                            )
+                          : playing
+                              ? AudioFileWaveforms(
+                                  size: Size(
+                                      MediaQuery.of(context).size.width, 100.0),
+                                  playerController: playerController,
+                                )
+                              // ? AudioFileWaveforms(
+                              //     size: Size(
+                              //         MediaQuery.of(context).size.width, 80.0),
+                              //     playerController: playerController,
+                              //     enableSeekGesture: true,
+                              //     waveformType: WaveformType.long,
+                              //     waveformData: [],
+                              //     playerWaveStyle: const PlayerWaveStyle(
+                              //       fixedWaveColor: Colors.green,
+                              //       liveWaveColor: Colors.red,
+                              //       spacing: 6,
+                              //     ),
+                              //     backgroundColor: Colors.black,
+                              //   )
+                              : Container())
+                  //       : Container(
+                  //           width: MediaQuery.of(context).size.width / 1.7,
+                  //           height: 50,
+                  //           decoration: BoxDecoration(
+                  //             color: const Color(0xFF1E1B26),
+                  //             borderRadius: BorderRadius.circular(12.0),
+                  //           ),
+                  //           padding: const EdgeInsets.only(left: 18),
+                  //           margin: const EdgeInsets.symmetric(horizontal: 15),
+                  //           child: TextField(
+                  //             readOnly: true,
+                  //             decoration: InputDecoration(
+                  //               hintText: "Type Something...",
+                  //               hintStyle:
+                  //                   const TextStyle(color: Colors.white54),
+                  //               contentPadding: const EdgeInsets.only(top: 16),
+                  //               border: InputBorder.none,
+                  //               suffixIcon: IconButton(
+                  //                 onPressed: () {},
+                  //                 // _pickFile,
+                  //                 icon: Icon(Icons.adaptive.share),
+                  //                 color: Colors.white54,
+                  //               ),
+                  //             ),
+                  //           ),
+                  //         ),
+                  // ),
+                  // IconButton(
+                  //   onPressed: _refreshWave,
+                  //   icon: Icon(
+                  //     isRecording ? Icons.refresh : Icons.send,
+                  //     color: Colors.white,
+                  //   ),
+                  // ),
+                  // const SizedBox(width: 16),
+                  // IconButton(
+                  //   onPressed: () {},
+                  //   // _startOrStopRecording,
+                  //   icon: Icon(isRecording ? Icons.stop : Icons.mic),
+                  //   color: Colors.white,
+                  //   iconSize: 28,
+                  // ),
+                ],
+              ),
               Container(
                 height: 92,
                 margin: const EdgeInsets.only(top: 10),
@@ -216,11 +379,7 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
                       backgroundColor: Colors.red,
                       borderColors: Colors.black45,
                       onTap: () async {
-                        if (recording) {
-                          await stopRecorder();
-                        } else {
-                          await startRecorder();
-                        }
+                        startRecorder();
                       },
                     ),
                     const Gap(40),
