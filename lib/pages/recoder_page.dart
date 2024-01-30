@@ -12,8 +12,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gap/gap.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 import 'package:sizer/sizer.dart';
+import 'package:path/path.dart' as p;
 
 class RecorderPage extends ConsumerStatefulWidget {
   const RecorderPage({super.key});
@@ -38,10 +40,56 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
     return appDirectory.path;
   }
 
+  Future<bool> requestStoragePermission() async {
+    final status = await Permission.storage.request();
+    if (status.isGranted) {
+      // Permission granted, proceed with your code
+      return true;
+    } else {
+      // Permission denied, handle case like informing user or retrying
+      return false;
+    }
+  }
+
+  Future<String> getRecordingsDirectoryPath() async {
+    var status = await Permission.storage.status;
+    if (!status.isGranted) {
+      await Permission.storage.request();
+    }
+    Directory _directory = Directory("");
+    if (Platform.isAndroid) {
+      _directory = Directory("/storage/emulated/0/Recordings/ScribeIt");
+    } else {
+      _directory = await getApplicationDocumentsDirectory();
+    }
+
+    final exPath = _directory.path;
+    print(
+        "Saved Path: $exPath--------------------------------------------------");
+
+    if ((await _directory.exists())) {
+      return _directory.path;
+    } else {
+      await _directory.create();
+      return _directory.path;
+    }
+    // await Directory(exPath).create(recursive: true);
+    // return exPath;
+  }
+
+  Future<String> get localPath async {
+    // final directory = await getApplicationDocumentsDirectory();
+    // return directory.path;
+    // To get the external path from device of download folder
+    final String directory = await getRecordingsDirectoryPath();
+    return directory;
+  }
+
   startRecorder() async {
-    await getDirectory().then((path) async {
+    await localPath.then((path) async {
       String key = UniqueKey().toString();
       recorderPath = '$path/recording$key.wav';
+      print("Record path is $recorderPath");
       if (await recorder.hasPermission()) {
         setState(() {
           recording = true;
@@ -137,6 +185,16 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
     print('Cleaned all directories');
   }
 
+  Future<void> deleteFile(File file) async {
+    try {
+      if (await file.exists()) {
+        await file.delete();
+      }
+    } catch (e) {
+      print("Can't delete the file.");
+    }
+  }
+
   @override
   void dispose() {
     // TODO: implement dispose
@@ -157,6 +215,7 @@ class _RecorderPageState extends ConsumerState<RecorderPage> {
                 return GestureDetector(
                   onDoubleTap: () {
                     audioPaths.remove(e);
+                    deleteFile(File(e));
                     setState(() {});
                   },
                   onTap: () async {
