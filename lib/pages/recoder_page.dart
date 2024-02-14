@@ -24,7 +24,6 @@ class _RecorderPageState extends State<RecorderPage> {
     // TODO: implement initState
     initSharedPreference();
     initRecorder();
-    getSavedAudioPaths();
   }
 
   getSavedAudioPaths() async {
@@ -35,6 +34,7 @@ class _RecorderPageState extends State<RecorderPage> {
 
   initSharedPreference() async {
     preferences = await SharedPreferences.getInstance();
+    getSavedAudioPaths();
   }
 
   initRecorder() {
@@ -50,7 +50,7 @@ class _RecorderPageState extends State<RecorderPage> {
     if (recording) {
       final path = await recorderController.stop();
       debugPrint(path);
-      preferences.setString("audioPath", audioPath);
+      await preferences.setString("audioPath", audioPath);
       audioPath = path ?? "";
       recording = false;
     } else {
