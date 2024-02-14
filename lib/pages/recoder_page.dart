@@ -13,28 +13,22 @@ class RecorderPage extends StatefulWidget {
 
 class _RecorderPageState extends State<RecorderPage> {
   bool recording = false;
-  bool audioPlaying = false;
   late RecorderController recorderController;
   String audioPath = '';
   AudioPlayer audioPlayer = AudioPlayer();
-  late SharedPreferences preferences;
 
   @override
   void initState() {
     // TODO: implement initState
-    initSharedPreference();
+    getSavedAudioPaths();
     initRecorder();
   }
 
   getSavedAudioPaths() async {
-    final path = preferences.getString('audioPath');
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    final path = preferences.getString("audioPath");
     audioPath = path ?? "";
-    initAudio(audioPath);
-  }
-
-  initSharedPreference() async {
-    preferences = await SharedPreferences.getInstance();
-    getSavedAudioPaths();
+    setState(() {});
   }
 
   initRecorder() {
@@ -50,7 +44,8 @@ class _RecorderPageState extends State<RecorderPage> {
     if (recording) {
       final path = await recorderController.stop();
       debugPrint(path);
-      await preferences.setString("audioPath", audioPath);
+      SharedPreferences preferences = await SharedPreferences.getInstance();
+      await preferences.setString("audioPath", path!);
       audioPath = path ?? "";
       recording = false;
     } else {
@@ -61,25 +56,20 @@ class _RecorderPageState extends State<RecorderPage> {
   }
 
   controlAudioPlayer() async {
-    if (audioPlaying) {
-      audioPlaying = false;
+    if (audioPlayer.playing) {
       await audioPlayer.pause();
     } else {
-      audioPlaying = true;
       await initAudio(audioPath);
     }
-
-    setState(() {});
   }
 
   initAudio(String audioPath) async {
     try {
       await audioPlayer.stop();
-      await audioPlayer.setLoopMode(LoopMode.off);
+      await audioPlayer.setLoopMode(LoopMode.one);
       await audioPlayer.setAudioSource(AudioSource.file(audioPath));
       await audioPlayer.play();
     } catch (e) {
-      audioPlaying = false;
       debugPrint(e.toString());
     }
   }
@@ -107,13 +97,21 @@ class _RecorderPageState extends State<RecorderPage> {
                   icon: recording
                       ? const Icon(Icons.stop_rounded)
                       : const Icon(Icons.mic)),
-              (!recording && audioPath.isNotEmpty)
-                  ? IconButton(
-                      onPressed: controlAudioPlayer,
-                      icon: audioPlaying
-                          ? const Icon(Icons.stop, color: Colors.blue)
-                          : const Icon(Icons.play_arrow, color: Colors.blue))
-                  : const SizedBox(),
+              StreamBuilder<dynamic>(
+                  stream: audioPlayer.playerStateStream,
+                  builder: (context, snapshot) {
+                    final playerState = snapshot.data;
+                    final playing = playerState?.playing;
+                    debugPrint(playing.toString());
+                    return (!recording && audioPath.isNotEmpty)
+                        ? IconButton(
+                            onPressed: controlAudioPlayer,
+                            icon: playing ?? false
+                                ? const Icon(Icons.pause, color: Colors.blue)
+                                : const Icon(Icons.play_arrow,
+                                    color: Colors.blue))
+                        : const SizedBox();
+                  }),
             ],
           )
         ],
