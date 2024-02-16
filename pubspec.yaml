@@ -15,6 +15,8 @@ dependencies:
   shared_preferences: ^2.1.0
   gap: ^3.0.1
   floor: ^1.4.2
+  file_picker: ^6.1.1
+  chat_bubbles: ^1.6.0
 
 dev_dependencies:
   flutter_test:
@@ -23,3 +25,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+ 
+  assets:
+    - assets/images/logo.png
+    - assets/audios/audio1.mp3
+    - assets/audios/audio2.mp3
+    - assets/audios/audio3.mp3
+    - assets/audios/audio4.mp3
+
